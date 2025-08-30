@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/googleai"
@@ -55,7 +54,7 @@ func main() {
 	// with the model - this context is needed to ensure tool calling works
 	// properly.
 	messageHistory := []llms.MessageContent{
-		llms.TextParts(llms.ChatMessageTypeHuman, "What is the current value of bitcoin ?"),
+		llms.TextParts(llms.ChatMessageTypeHuman, "What is the current value of ethereum ?"),
 	}
 	resp, err := llm.GenerateContent(ctx, messageHistory, llms.WithTools(availableTools))
 	if err != nil {
@@ -84,19 +83,17 @@ func main() {
 			if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &args); err != nil {
 				log.Fatal(err)
 			}
-			if strings.Contains(args.Crypto, "eth") {
-				s := crypto(args.Crypto)
-				toolResponse := llms.MessageContent{
-					Role: llms.ChatMessageTypeTool,
-					Parts: []llms.ContentPart{
-						llms.ToolCallResponse{
-							Name:    tc.FunctionCall.Name,
-							Content: s,
-						},
+			s := crypto(args.Crypto)
+			toolResponse := llms.MessageContent{
+				Role: llms.ChatMessageTypeTool,
+				Parts: []llms.ContentPart{
+					llms.ToolCallResponse{
+						Name:    tc.FunctionCall.Name,
+						Content: s,
 					},
-				}
-				messageHistory = append(messageHistory, toolResponse)
+				},
 			}
+			messageHistory = append(messageHistory, toolResponse)
 		default:
 			log.Fatalf("got unexpected function call: %v", tc.FunctionCall.Name)
 		}
