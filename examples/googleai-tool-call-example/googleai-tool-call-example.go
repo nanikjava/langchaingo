@@ -5,12 +5,36 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/googleai"
 )
+
+func crypto(c string) string {
+	// Same as your curl URL
+	url := fmt.Sprintf("https://api.coingecko.com/api/v3/simple/price?ids=%s&vs_currencies=usd", c)
+
+	// Make HTTP request
+	resp, err := http.Get(url)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	// Parse JSON into a generic map
+	var result map[string]map[string]float64
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		panic(err)
+	}
+
+	// Extract Bitcoin USD price
+	price := result["bitcoin"]["usd"]
+	s := fmt.Sprintf("Current Bitcoin price: $%.2f\n", price)
+	return s
+}
 
 func main() {
 	genaiKey := os.Getenv("GOOGLE_API_KEY")
@@ -31,7 +55,7 @@ func main() {
 	// with the model - this context is needed to ensure tool calling works
 	// properly.
 	messageHistory := []llms.MessageContent{
-		llms.TextParts(llms.ChatMessageTypeHuman, "What is the weather like in Chicago?"),
+		llms.TextParts(llms.ChatMessageTypeHuman, "What is the current value of bitcoin ?"),
 	}
 	resp, err := llm.GenerateContent(ctx, messageHistory, llms.WithTools(availableTools))
 	if err != nil {
@@ -50,20 +74,24 @@ func main() {
 	// "Execute" tool calls by calling requested function
 	for _, tc := range respchoice.ToolCalls {
 		switch tc.FunctionCall.Name {
-		case "getCurrentWeather":
+		case "getCrypto":
+			log.Println("getCrypto...")
+			log.Println("Arguments " + tc.FunctionCall.Arguments)
+
 			var args struct {
-				Location string `json:"location"`
+				Crypto string `json:"crypto"`
 			}
 			if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &args); err != nil {
 				log.Fatal(err)
 			}
-			if strings.Contains(args.Location, "Chicago") {
+			if strings.Contains(args.Crypto, "eth") {
+				s := crypto(args.Crypto)
 				toolResponse := llms.MessageContent{
 					Role: llms.ChatMessageTypeTool,
 					Parts: []llms.ContentPart{
 						llms.ToolCallResponse{
 							Name:    tc.FunctionCall.Name,
-							Content: "64 and sunny",
+							Content: s,
 						},
 					},
 				}
@@ -90,17 +118,17 @@ var availableTools = []llms.Tool{
 	{
 		Type: "function",
 		Function: &llms.FunctionDefinition{
-			Name:        "getCurrentWeather",
-			Description: "Get the current weather in a given location",
+			Name:        "getCrypto",
+			Description: "Get the current value of a particular cryptocurrency",
 			Parameters: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"location": map[string]any{
+					"crypto": map[string]any{
 						"type":        "string",
-						"description": "The city and state, e.g. San Francisco, CA",
+						"description": "The id of a cryto currency",
 					},
 				},
-				"required": []string{"location"},
+				"required": []string{"crypto"},
 			},
 		},
 	},
