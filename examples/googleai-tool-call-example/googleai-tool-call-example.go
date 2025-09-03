@@ -54,7 +54,7 @@ func main() {
 	// with the model - this context is needed to ensure tool calling works
 	// properly.
 	messageHistory := []llms.MessageContent{
-		llms.TextParts(llms.ChatMessageTypeHuman, "What is the current value of ethereum ?"),
+		llms.TextParts(llms.ChatMessageTypeHuman, "What is the current value of bitcoin ?"),
 	}
 	resp, err := llm.GenerateContent(ctx, messageHistory, llms.WithTools(availableTools))
 	if err != nil {
@@ -74,8 +74,8 @@ func main() {
 	for _, tc := range respchoice.ToolCalls {
 		switch tc.FunctionCall.Name {
 		case "getCrypto":
-			log.Println("getCrypto...")
-			log.Println("Arguments " + tc.FunctionCall.Arguments)
+			log.Println("getCrypto is called ")
+			log.Println("getCrypto arguments : " + tc.FunctionCall.Arguments)
 
 			var args struct {
 				Crypto string `json:"crypto"`
@@ -104,7 +104,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Response after tool call:")
+	log.Println("Response after tool call:")
 	b, _ := json.MarshalIndent(resp.Choices[0], " ", "  ")
 	fmt.Println(string(b))
 }
